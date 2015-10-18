@@ -7,6 +7,7 @@
  * Controller protocol implemented using Andrew J McCubbin's analysis.
  * http://www.gamesx.com/controldata/psxcont/psxcont.htm
  *
+ * Be sure to select board type Joystick/Serial
  */
 
 static const int command_pin = 9;
@@ -49,25 +50,25 @@ void psx_setup()
 	digitalWrite(clock_pin, HIGH);
 }
 
+static const uint8_t out_bytes[] = {
+	0x01, // 0 read device id
+	0x42, // 1 send data command
+	0xFF, // 2
+	0xFF, // 3
+	0xFF, // 4
+	0xFF, // 5
+	0xFF, // 6
+	0xFF, // 7
+	0xFF, // 8
+};
+
+static const int num_bytes = sizeof(out_bytes) / sizeof(*out_bytes);
+uint8_t bytes[num_bytes];
+
 
 unsigned int psx_read()
 {
 	digitalWrite(att_pin, LOW);
-
-	static const uint8_t out_bytes[] = {
-		0x01, // 0 read device id
-		0x42, // 1 send data command
-		0xFF, // 2
-		0xFF, // 3
-		0xFF, // 4
-		0xFF, // 5
-		0xFF, // 6
-		0xFF, // 7
-		0xFF, // 8
-	};
-
-	static const int num_bytes = sizeof(out_bytes) / sizeof(*out_bytes);
-	uint8_t bytes[num_bytes];
 
 	for(int i = 0 ; i < num_bytes ; i++)
 		bytes[i] = psx_shift(out_bytes[i]);
@@ -77,7 +78,7 @@ unsigned int psx_read()
 	for(int i = 0 ; i < num_bytes ; i++)
 	{
 		Serial.print(" ");
-		Serial.print(bytes[i]);
+		Serial.print(bytes[i], HEX);
 	}
 
 	Serial.println();
@@ -86,10 +87,45 @@ unsigned int psx_read()
 
 void setup()
 {
+	Joystick.useManualSend(true);
 	psx_setup();
 }
 
 void loop()
 {
 	psx_read();
+
+	// we only support the fancy dual stick right now
+	// id 0x53, which is 
+	if (bytes[1] != ~0x53)
+		return;
+
+	// analog axes
+	Joystick.X(bytes[5] * 4);
+	Joystick.Y(bytes[6] * 4);
+	Joystick.Z(bytes[7] * 4);
+	Joystick.Zrotate(bytes[8] * 4);
+
+	// hat 
+	switch(bytes[3])
+	{
+	default:
+	case 0x00: Joystick.hat(-1); break;
+	case 0x10: Joystick.hat(0); break;
+	case 0x30: Joystick.hat(45); break;
+	case 0x20: Joystick.hat(90); break;
+	case 0x60: Joystick.hat(135); break;
+	case 0x40: Joystick.hat(180); break;
+	case 0xC0: Joystick.hat(225); break;
+	case 0x80: Joystick.hat(270); break;
+	case 0x90: Joystick.hat(315); break;
+	};
+
+	// other buttons
+	uint8_t buttons = bytes[4];
+	for(int i = 0 ; i < 8 ; i++, buttons >>= 1)
+		Joystick.button(i, buttons & 1);
+
+	// flush the packet to the computer
+	Joystick.send_now();
 }
