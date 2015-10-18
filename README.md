@@ -5,3 +5,6 @@ Be sure to select that it is a "serial/keyboard/mouse/joystick" in
 the teensyduino board type menu.
 
 More details: https://trmm.net/Wipeout
+
+The `dfinput.cfg` file should be copied to `~/.pcsx/plugins/dfinput.cfg`
+so that the axes are correctly mapped.
