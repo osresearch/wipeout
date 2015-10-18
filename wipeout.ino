@@ -96,8 +96,8 @@ void loop()
 	psx_read();
 
 	// we only support the fancy dual stick right now
-	// id 0x53, which is 
-	if (bytes[1] != ~0x53)
+	// id 0x53, which is ~0xAC
+	if (bytes[1] != 0xAC)
 		return;
 
 	// analog axes
@@ -107,7 +107,7 @@ void loop()
 	Joystick.Zrotate(bytes[8] * 4);
 
 	// hat 
-	switch(bytes[3])
+	switch(bytes[3] & 0xF0)
 	{
 	default:
 	case 0x00: Joystick.hat(-1); break;
@@ -124,7 +124,12 @@ void loop()
 	// other buttons
 	uint8_t buttons = bytes[4];
 	for(int i = 0 ; i < 8 ; i++, buttons >>= 1)
-		Joystick.button(i, buttons & 1);
+		Joystick.button(i+1, buttons & 1);
+
+	// and some final buttons
+	buttons = bytes[3] & 0x0F;
+	for(int i = 0 ; i < 4 ; i++, buttons >>= 1)
+		Joystick.button(i+9, buttons & 1);
 
 	// flush the packet to the computer
 	Joystick.send_now();
